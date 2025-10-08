@@ -38,7 +38,7 @@ type NetworkPort struct {
 
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
-	Port int32 `json:"port"`
+	Port int `json:"port"`
 
 	// +kubebuilder:validation:Enum=TCP;UDP;SCTP
 	// +kubebuilder:default=TCP
@@ -98,9 +98,9 @@ type SymmetricRuleStatus struct {
 }
 
 type SymmetricRuleMetrics struct {
-	IngressPeers      int32 `json:"ingressPeers,omitempty"`
-	EgressPeers       int32 `json:"egressPeers,omitempty"`
-	EstimatedPolicies int32 `json:"estimatedPolicies,omitempty"`
+	IngressPeers      int `json:"ingressPeers,omitempty"`
+	EgressPeers       int `json:"egressPeers,omitempty"`
+	EstimatedPolicies int `json:"estimatedPolicies,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -5,23 +5,22 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - ztnp.io
+  - ""
   resources:
-  - symmetricrules
+  - namespaces
+  - pods
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - ztnp.io
   resources:
-  - symmetricrules/finalizers
+  - symmetricrules
   verbs:
-  - update
+  - get
+  - list
+  - watch
 - apiGroups:
   - ztnp.io
   resources:

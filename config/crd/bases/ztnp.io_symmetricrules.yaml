@@ -175,7 +175,6 @@ spec:
                   description: NetworkPort defines one allowed port for the rule
                   properties:
                     port:
-                      format: int32
                       maximum: 65535
                       minimum: 1
                       type: integer
@@ -373,13 +372,10 @@ spec:
                 description: Some metrics for the compiled plan
                 properties:
                   egressPeers:
-                    format: int32
                     type: integer
                   estimatedPolicies:
-                    format: int32
                     type: integer
                   ingressPeers:
-                    format: int32
                     type: integer
                 type: object
               reason:
