@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- ztnp_v1alpha1_symmetricrule.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

@@ -1,0 +1,32 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - ztnp.io
+  resources:
+  - symmetricrules
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ztnp.io
+  resources:
+  - symmetricrules/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - ztnp.io
+  resources:
+  - symmetricrules/status
+  verbs:
+  - get
+  - patch
+  - update

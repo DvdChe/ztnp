@@ -1,0 +1,17 @@
+apiVersion: ztnp.io/v1alpha1
+kind: SymmetricRule
+metadata:
+  name: frontend-to-api
+spec:
+  from:
+    namespaceSelector:
+      matchLabels: { env: prod }
+    podSelector:
+      matchLabels: { app: frontend }
+  to:
+    namespaceSelector:
+      matchLabels: { env: prod }
+    podSelector:
+      matchLabels: { app: api }
+  ports:
+    - port: 8080
