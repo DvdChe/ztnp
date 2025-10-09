@@ -1,17 +1,88 @@
 apiVersion: ztnp.io/v1alpha1
 kind: SymmetricRule
 metadata:
-  name: frontend-to-api
+  name: fe-to-api
 spec:
   from:
-    namespaceSelector:
-      matchLabels: { env: prod }
+    namespaceSelector: 
+      matchLabels: 
+        kubernetes.io/metadata.name: frontend
     podSelector:
-      matchLabels: { app: frontend }
+      matchLabels:
+        app: frontend
   to:
     namespaceSelector:
-      matchLabels: { env: prod }
+      matchLabels:
+        kubernetes.io/metadata.name: api
     podSelector:
-      matchLabels: { app: api }
+      matchLabels:
+        app: api
   ports:
-    - port: 8080
+  - port: 80
+    protocol: TCP
+  enforce: true
+  prune: true
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: api
+spec:
+  finalizers:
+  - kubernetes
+status:
+  phase: Active
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: frontend
+spec:
+  finalizers:
+  - kubernetes
+status:
+  phase: Active
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: frontend
+  name: frontend
+  namespace: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - image: nginx
+        name: nginx
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: api
+  name: api
+  namespace: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+      - image: nginx
+        name: nginx

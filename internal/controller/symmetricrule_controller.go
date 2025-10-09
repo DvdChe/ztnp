@@ -16,22 +16,27 @@ limitations under the License.
 
 // +kubebuilder:rbac:groups=ztnp.io,resources=symmetricrules,verbs=get;list;watch
 // +kubebuilder:rbac:groups=ztnp.io,resources=symmetricrules/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=namespaces;pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;patch;delete
 
 package controller
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	ztnpv1alpha1 "github.com/DvdChe/ztnp/api/v1alpha1"
@@ -88,6 +93,48 @@ func (r *SymmetricRuleReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 	logf.FromContext(ctx).Info("computed plan",
 		"name", sr.Name, "fromPods", fromCount, "toPods", toCount, "reason", reason)
+
+	if sr.Spec.Enforce {
+		// 1) The target namespaces
+		toNS, err := r.namespacesFor(ctx, sr.Spec.To.NamespaceSelector)
+		if err != nil {
+			return r.setStatus(ctx, &sr, false, "NamespaceResolveError(to)", err.Error(), fromCount, toCount)
+		}
+		// 2) The source namespaces
+		fromNS, err := r.namespacesFor(ctx, sr.Spec.From.NamespaceSelector)
+		if err != nil {
+			return r.setStatus(ctx, &sr, false, "NamespaceResolveError(from)", err.Error(), fromCount, toCount)
+		}
+
+		// 3) Apply ingress in each target ns
+		for _, ns := range toNS {
+			np := renderIngressNP(ns, &sr)
+			op, err := controllerutil.CreateOrUpdate(ctx, r.Client, np, func() error {
+				mutateNetworkPolicy(np, renderIngressNP(ns, &sr))
+				return nil
+			})
+			if err != nil {
+				return r.setStatus(ctx, &sr, false, "ApplyError(ingress)", err.Error(), fromCount, toCount)
+			}
+			logf.FromContext(ctx).Info("ingress policy reconciled", "namespace", ns, "op", op)
+		}
+
+		// 4) Apply egress in each source ns
+		for _, ns := range fromNS {
+			np := renderEgressNP(ns, &sr)
+			op, err := controllerutil.CreateOrUpdate(ctx, r.Client, np, func() error {
+				mutateNetworkPolicy(np, renderEgressNP(ns, &sr))
+				return nil
+			})
+			if err != nil {
+				return r.setStatus(ctx, &sr, false, "ApplyError(ingress)", err.Error(), fromCount, toCount)
+			}
+			logf.FromContext(ctx).Info("ingress policy reconciled", "namespace", ns, "op", op)
+		}
+
+		// 5) Success
+		return r.setStatus(ctx, &sr, true, "Success", "NetworkPolicies applied", fromCount, toCount, 2)
+	}
 
 	return r.setStatus(ctx, &sr, false, reason, msg, int(fromCount), int(toCount), estimatedPolicies)
 }
@@ -166,4 +213,132 @@ func (r *SymmetricRuleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&ztnpv1alpha1.SymmetricRule{}).
 		Complete(r)
+}
+
+func renderIngressNP(ns string, sr *ztnpv1alpha1.SymmetricRule) *netv1.NetworkPolicy {
+	np := &netv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("ztnp-%s-ingress", sr.Name),
+			Namespace: ns,
+			Labels: map[string]string{
+				"ztnp.io/managed":   "true",
+				"ztnp.io/symrule":   sr.Name,
+				"ztnp.io/direction": "ingress",
+			},
+		},
+		Spec: netv1.NetworkPolicySpec{
+			PodSelector: lsOrEmpty(sr.Spec.To.PodSelector),
+			PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeIngress},
+		},
+	}
+	// from peer (ns + pods)
+	ip := netv1.NetworkPolicyIngressRule{}
+	ip.From = []netv1.NetworkPolicyPeer{{
+		NamespaceSelector: sr.Spec.From.NamespaceSelector,
+		PodSelector:       sr.Spec.From.PodSelector,
+	}}
+	// ports (omit if empty => all)
+	if len(sr.Spec.Ports) > 0 {
+		for _, p := range sr.Spec.Ports {
+			proto := corev1.ProtocolTCP
+			if p.Protocol != "" {
+				proto = p.Protocol
+			}
+			ip.Ports = append(ip.Ports, netv1.NetworkPolicyPort{
+				Protocol: &proto,
+				Port:     &intstr.IntOrString{Type: intstr.Int, IntVal: int32(p.Port)},
+			})
+		}
+	}
+	np.Spec.Ingress = []netv1.NetworkPolicyIngressRule{ip}
+	return np
+}
+
+func renderEgressNP(ns string, sr *ztnpv1alpha1.SymmetricRule) *netv1.NetworkPolicy {
+	np := &netv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("ztnp-%s-egress", sr.Name),
+			Namespace: ns,
+			Labels: map[string]string{
+				"ztnp.io/managed":   "true",
+				"ztnp.io/symrule":   sr.Name,
+				"ztnp.io/direction": "egress",
+			},
+		},
+		Spec: netv1.NetworkPolicySpec{
+			PodSelector: lsOrEmpty(sr.Spec.From.PodSelector),
+			PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeEgress},
+		},
+	}
+	er := netv1.NetworkPolicyEgressRule{}
+	er.To = []netv1.NetworkPolicyPeer{{
+		NamespaceSelector: sr.Spec.To.NamespaceSelector,
+		PodSelector:       sr.Spec.To.PodSelector,
+	}}
+	if len(sr.Spec.Ports) > 0 {
+		for _, p := range sr.Spec.Ports {
+			proto := corev1.ProtocolTCP
+			if p.Protocol != "" {
+				proto = p.Protocol
+			}
+			er.Ports = append(er.Ports, netv1.NetworkPolicyPort{
+				Protocol: &proto,
+				Port:     &intstr.IntOrString{Type: intstr.Int, IntVal: int32(p.Port)},
+			})
+		}
+	}
+	np.Spec.Egress = []netv1.NetworkPolicyEgressRule{er}
+	return np
+}
+
+func lsOrEmpty(ls *metav1.LabelSelector) metav1.LabelSelector {
+	if ls != nil {
+		return *ls
+	}
+	return metav1.LabelSelector{} // empty selector => all pods in the namespace
+}
+
+// helper pour résoudre les listes de namespaces à partir d'un NamespaceSelector
+func (r *SymmetricRuleReconciler) namespacesFor(ctx context.Context, sel *metav1.LabelSelector) ([]string, error) {
+	s := labels.Everything()
+	if sel != nil {
+		var err error
+		s, err = metav1.LabelSelectorAsSelector(sel)
+		if err != nil {
+			return nil, err
+		}
+	}
+	var nsList corev1.NamespaceList
+	if err := r.List(ctx, &nsList, &client.ListOptions{LabelSelector: s}); err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(nsList.Items))
+	for _, ns := range nsList.Items {
+		out = append(out, ns.Name)
+	}
+	return out, nil
+}
+
+// mutateNetworkPolicy applique le "desired state" sur l'objet existant (np).
+// - Remplace .Spec entièrement (idempotent, simple)
+// - Met à jour les labels gérés ztnp.io/* en préservant les autres
+func mutateNetworkPolicy(existing, desired *netv1.NetworkPolicy) {
+	// 1) Labels : purge des labels gérés pour éviter les artefacts
+	if existing.Labels == nil {
+		existing.Labels = map[string]string{}
+	}
+	for k := range existing.Labels {
+		if strings.HasPrefix(k, "ztnp.io/") {
+			delete(existing.Labels, k)
+		}
+	}
+	// puis recopie des labels désirés (inclut ztnp.io/*)
+	for k, v := range desired.Labels {
+		existing.Labels[k] = v
+	}
+
+	// 2) Spec : remplacement complet
+	existing.Spec = desired.Spec
+
+	// (Annotations/OwnerRefs non touchés volontairement)
 }
