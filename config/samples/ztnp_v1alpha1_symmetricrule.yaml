@@ -1,47 +1,13 @@
-apiVersion: ztnp.io/v1alpha1
-kind: SymmetricRule
-metadata:
-  name: fe-to-api
-spec:
-  from:
-    namespaceSelector: 
-      matchLabels: 
-        kubernetes.io/metadata.name: frontend
-    podSelector:
-      matchLabels:
-        app: frontend
-  to:
-    namespaceSelector:
-      matchLabels:
-        kubernetes.io/metadata.name: api
-    podSelector:
-      matchLabels:
-        app: api
-  ports:
-  - port: 80
-    protocol: TCP
-  enforce: true
-  prune: true
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
   name: api
-spec:
-  finalizers:
-  - kubernetes
-status:
-  phase: Active
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
   name: frontend
-spec:
-  finalizers:
-  - kubernetes
-status:
-  phase: Active
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -86,3 +52,28 @@ spec:
       containers:
       - image: nginx
         name: nginx
+---
+apiVersion: ztnp.io/v1alpha1
+kind: SymmetricRule
+metadata:
+  name: fe-to-api
+spec:
+  from:
+    namespaceSelector: 
+      matchLabels: 
+        kubernetes.io/metadata.name: frontend
+    podSelector:
+      matchLabels:
+        app: frontend
+  to:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: api
+    podSelector:
+      matchLabels:
+        app: api
+  ports:
+  - port: 80
+    protocol: TCP
+  enforce: true
+  prune: true

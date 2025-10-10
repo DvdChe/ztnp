@@ -319,11 +319,11 @@ func (r *SymmetricRuleReconciler) namespacesFor(ctx context.Context, sel *metav1
 	return out, nil
 }
 
-// mutateNetworkPolicy applique le "desired state" sur l'objet existant (np).
-// - Remplace .Spec entièrement (idempotent, simple)
-// - Met à jour les labels gérés ztnp.io/* en préservant les autres
+// mutateNetworkPolicy applies the "desired state" on the existing object (np).
+// - Replace .Spec entirely (idempotent, simple)
+// - Update managed labels ztnp.io/* while preserving others
 func mutateNetworkPolicy(existing, desired *netv1.NetworkPolicy) {
-	// 1) Labels : purge des labels gérés pour éviter les artefacts
+	// 1) Labels : purge managed labels to avoid artifacts
 	if existing.Labels == nil {
 		existing.Labels = map[string]string{}
 	}
@@ -332,13 +332,13 @@ func mutateNetworkPolicy(existing, desired *netv1.NetworkPolicy) {
 			delete(existing.Labels, k)
 		}
 	}
-	// puis recopie des labels désirés (inclut ztnp.io/*)
+	// then copy desired labels (includes ztnp.io/*)
 	for k, v := range desired.Labels {
 		existing.Labels[k] = v
 	}
 
-	// 2) Spec : remplacement complet
+	// 2) Spec : Full replacement
 	existing.Spec = desired.Spec
 
-	// (Annotations/OwnerRefs non touchés volontairement)
+	// (Annotations/OwnerRefs are not touched intentionally)
 }
