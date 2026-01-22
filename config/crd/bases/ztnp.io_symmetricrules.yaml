@@ -365,6 +365,10 @@ spec:
                 description: Timestamp of the last update to the status
                 format: date-time
                 type: string
+              managedRuleSets:
+                items:
+                  type: string
+                type: array
               message:
                 description: Detailed message explaining the state
                 type: string

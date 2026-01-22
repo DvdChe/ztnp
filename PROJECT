@@ -18,4 +18,13 @@ resources:
   kind: SymmetricRule
   path: github.com/DvdChe/ztnp/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: ztnp.io
+  group: ztnp
+  kind: RuleSet
+  path: github.com/DvdChe/ztnp/api/v1alpha1
+  version: v1alpha1
 version: "3"

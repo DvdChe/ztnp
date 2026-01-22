@@ -9,6 +9,11 @@ kind: Namespace
 metadata:
   name: frontend
 ---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: backend
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -53,14 +58,36 @@ spec:
       - image: nginx
         name: nginx
 ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: backend
+  name: backend
+  namespace: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - image: redis
+        name: redis
+---
 apiVersion: ztnp.io/v1alpha1
 kind: SymmetricRule
 metadata:
-  name: fe-to-api
+  name: frontend-to-api
 spec:
   from:
-    namespaceSelector: 
-      matchLabels: 
+    namespaceSelector:
+      matchLabels:
         kubernetes.io/metadata.name: frontend
     podSelector:
       matchLabels:
@@ -74,6 +101,31 @@ spec:
         app: api
   ports:
   - port: 80
+    protocol: TCP
+  enforce: true
+  prune: true
+---
+apiVersion: ztnp.io/v1alpha1
+kind: SymmetricRule
+metadata:
+  name: api-to-backend
+spec:
+  from:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: api
+    podSelector:
+      matchLabels:
+        app: api
+  to:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: backend
+    podSelector:
+      matchLabels:
+        app: backend
+  ports:
+  - port: 6379
     protocol: TCP
   enforce: true
   prune: true

@@ -8,7 +8,6 @@ rules:
   - ""
   resources:
   - namespaces
-  - pods
   verbs:
   - get
   - list
@@ -28,16 +27,38 @@ rules:
 - apiGroups:
   - ztnp.io
   resources:
-  - symmetricrules
+  - rulesets
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - ztnp.io
   resources:
+  - rulesets/finalizers
+  - symmetricrules/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - ztnp.io
+  resources:
+  - rulesets/status
   - symmetricrules/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - ztnp.io
+  resources:
+  - symmetricrules
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch

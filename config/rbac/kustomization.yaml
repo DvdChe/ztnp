@@ -22,7 +22,9 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the ztnp itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- ruleset_admin_role.yaml
+- ruleset_editor_role.yaml
+- ruleset_viewer_role.yaml
 - symmetricrule_admin_role.yaml
 - symmetricrule_editor_role.yaml
 - symmetricrule_viewer_role.yaml
-

@@ -3,6 +3,7 @@
 # It should be run by config/default
 resources:
 - bases/ztnp.io_symmetricrules.yaml
+- bases/ztnp.io_rulesets.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

@@ -95,6 +95,8 @@ type SymmetricRuleStatus struct {
 
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	ManagedRuleSets []string `json:"managedRuleSets,omitempty"`
 }
 
 type SymmetricRuleMetrics struct {
@@ -139,5 +141,5 @@ type SymmetricRuleList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&SymmetricRule{}, &SymmetricRuleList{})
+	SchemeBuilder.Register(&SymmetricRule{}, &SymmetricRuleList{}, &RuleSet{}, &RuleSetList{})
 }
