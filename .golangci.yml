@@ -28,7 +28,7 @@ linters:
         - name: import-shadowing
     goconst:
       min-occurrences: 5
-      ignore-values:
+      ignore-string-values:
         - "true"
         - "false"
   exclusions:
